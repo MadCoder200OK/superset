@@ -17,6 +17,8 @@
 
 # ATTENTION: If you change any constants, make sure to also change utils/common.js
 
+from __future__ import annotations
+
 # string to use when None values *need* to be converted to/from strings
 from enum import Enum
 
