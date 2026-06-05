@@ -20,9 +20,10 @@ from typing import Any
 
 from flask import current_app as app
 
-from superset import db, security_manager
+from superset import db
 from superset.commands.database.utils import add_permissions
 from superset.commands.exceptions import ImportFailedError
+from superset.commands.importers.v1.utils import validate_import_access
 from superset.databases.ssh_tunnel.models import SSHTunnel
 from superset.databases.utils import make_url_safe
 from superset.db_engine_specs.exceptions import SupersetDBAPIConnectionError
@@ -42,19 +43,16 @@ def import_database(  # noqa: C901
     overwrite: bool = False,
     ignore_permissions: bool = False,
 ) -> Database:
-    can_write = ignore_permissions or security_manager.can_access(
-        "can_write",
+    existing = validate_import_access(
+        Database,
         "Database",
+        config,
+        overwrite=overwrite,
+        ignore_permissions=ignore_permissions,
     )
-    existing = db.session.query(Database).filter_by(uuid=config["uuid"]).first()
     if existing:
-        if not overwrite or not can_write:
-            return existing
-        config["id"] = existing.id
-    elif not can_write:
-        raise ImportFailedError(
-            "Database doesn't exist and user doesn't have permission to create databases"  # noqa: E501
-        )
+        return existing
+
     # Check if this URI is allowed (skip for system imports like examples)
     if app.config["PREVENT_UNSAFE_DB_CONNECTIONS"] and not ignore_permissions:
         try:
@@ -81,11 +79,16 @@ def import_database(  # noqa: C901
     # For existing DBs, reveal masked sensitive values from current encrypted_extra.
     # For new DBs, schema validation already ensured no fields are still masked.
     if masked_encrypted_extra := config.pop("masked_encrypted_extra", None):
-        if existing and existing.encrypted_extra:
-            old_config = json.loads(existing.encrypted_extra)
+        existing_db = (
+            db.session.query(Database).filter_by(id=config["id"]).first()
+            if "id" in config
+            else None
+        )
+        if existing_db and existing_db.encrypted_extra:
+            old_config = json.loads(existing_db.encrypted_extra)
             new_config = json.loads(masked_encrypted_extra)
             sensitive_fields = (
-                existing.db_engine_spec.encrypted_extra_sensitive_field_paths()
+                existing_db.db_engine_spec.encrypted_extra_sensitive_field_paths()
             )
             revealed = json.reveal_sensitive(
                 old_config,

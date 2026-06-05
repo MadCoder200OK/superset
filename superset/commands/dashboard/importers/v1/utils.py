@@ -18,11 +18,13 @@
 import logging
 from typing import Any
 
-from superset import db, security_manager
-from superset.commands.exceptions import ImportFailedError
+from superset import security_manager
+from superset.commands.importers.v1.utils import (
+    flush_and_ensure_owner,
+    validate_import_access,
+)
 from superset.models.dashboard import Dashboard
 from superset.utils import json
-from superset.utils.core import get_user
 
 logger = logging.getLogger(__name__)
 
@@ -248,29 +250,16 @@ def import_dashboard(  # noqa: C901
     overwrite: bool = False,
     ignore_permissions: bool = False,
 ) -> Dashboard:
-    can_write = ignore_permissions or security_manager.can_access(
-        "can_write",
+    existing = validate_import_access(
+        Dashboard,
         "Dashboard",
+        config,
+        overwrite=overwrite,
+        ignore_permissions=ignore_permissions,
+        access_check=security_manager.can_access_dashboard,
     )
-    existing = db.session.query(Dashboard).filter_by(uuid=config["uuid"]).first()
-    user = get_user()
     if existing:
-        if overwrite and can_write and user:
-            if not security_manager.can_access_dashboard(existing) or (
-                user not in existing.owners and not security_manager.is_admin()
-            ):
-                raise ImportFailedError(
-                    "A dashboard already exists and user doesn't "
-                    "have permissions to overwrite it"
-                )
-        elif not overwrite or not can_write:
-            return existing
-        config["id"] = existing.id
-    elif not can_write:
-        raise ImportFailedError(
-            "Dashboard doesn't exist and user doesn't "
-            "have permission to create dashboards"
-        )
+        return existing
 
     # TODO (betodealmeida): move this logic to import_from_dict
     config = config.copy()
@@ -295,11 +284,7 @@ def import_dashboard(  # noqa: C901
                 logger.info("Unable to encode `%s` field: %s", key, value)
 
     dashboard = Dashboard.import_from_dict(config, recursive=False)
-    if dashboard.id is None:
-        db.session.flush()
-
-    if (user := get_user()) and user not in dashboard.owners:
-        dashboard.owners.append(user)
+    flush_and_ensure_owner(dashboard)
 
     # Re-attach DASHBOARD_RBAC role assignments by name. Role IDs are
     # environment-local; names are how exports cross environments. Roles
