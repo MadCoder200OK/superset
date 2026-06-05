@@ -852,7 +852,7 @@ class BaseReportState:
             and self._report_schedule.grace_period
             and datetime.now(tz=timezone.utc)
             - timedelta(seconds=self._report_schedule.grace_period)
-            < last_success.end_dttm
+            < last_success.end_dttm.replace(tzinfo=timezone.utc)
         )
 
     def is_in_error_grace_period(self) -> bool:
@@ -869,7 +869,7 @@ class BaseReportState:
             and self._report_schedule.grace_period
             and datetime.now(tz=timezone.utc)
             - timedelta(seconds=self._report_schedule.grace_period)
-            < last_success.end_dttm
+            < last_success.end_dttm.replace(tzinfo=timezone.utc)
         )
 
     def is_on_working_timeout(self) -> bool:
@@ -886,7 +886,7 @@ class BaseReportState:
             and self._report_schedule.last_eval_dttm is not None
             and datetime.now(tz=timezone.utc)
             - timedelta(seconds=self._report_schedule.working_timeout)
-            > last_working.end_dttm
+            > last_working.end_dttm.replace(tzinfo=timezone.utc)
         )
 
     def next(self) -> None:
@@ -1000,7 +1000,10 @@ class ReportWorkingState(BaseReportState):
                 self._report_schedule
             )
             elapsed_seconds = (
-                (datetime.now(tz=timezone.utc) - last_working.end_dttm).total_seconds()
+                (
+                    datetime.now(tz=timezone.utc)
+                    - last_working.end_dttm.replace(tzinfo=timezone.utc)
+                ).total_seconds()
                 if last_working
                 else None
             )
