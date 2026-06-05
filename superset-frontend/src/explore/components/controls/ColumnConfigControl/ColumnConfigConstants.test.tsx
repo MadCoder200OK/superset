@@ -27,11 +27,8 @@ test('should allow commas in D3 format inputs', () => {
   expect(labels.some((label: string) => label.includes(','))).toBe(true);
 });
 
-test('should use defaults from Select token separators', () => {
-  expect(
-    Object.prototype.hasOwnProperty.call(
-      SHARED_COLUMN_CONFIG_PROPS.d3NumberFormat,
-      'tokenSeparators',
-    ),
-  ).toBe(false);
+test('should not include comma in tokenSeparators so commas can be typed in D3 format', () => {
+  const { tokenSeparators } = SHARED_COLUMN_CONFIG_PROPS.d3NumberFormat;
+  expect(tokenSeparators).toBeDefined();
+  expect(tokenSeparators).not.toContain(',');
 });
