@@ -16,7 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { VariableSizeList as List } from 'react-window';
 import { FlattenedItem, Folder } from './types';
 import DatasourcePanelItem from './DatasourcePanelItem';
@@ -104,6 +110,33 @@ export const DatasourceItems = ({
       folders.filter(folder => folder.isCollapsed).map(folder => folder.id),
     ),
   );
+
+  useEffect(() => {
+    setCollapsedFolderIds(prevIds => {
+      const currentFolderIds = new Set(folders.map(folder => folder.id));
+      const newIds = new Set<string>();
+
+      prevIds.forEach(id => {
+        if (currentFolderIds.has(id)) {
+          newIds.add(id);
+        }
+      });
+
+      folders.forEach(folder => {
+        if (folder.isCollapsed && !prevIds.has(folder.id)) {
+          newIds.add(folder.id);
+        }
+      });
+
+      if (
+        newIds.size === prevIds.size &&
+        [...newIds].every(id => prevIds.has(id))
+      ) {
+        return prevIds;
+      }
+      return newIds;
+    });
+  }, [folders]);
 
   const { flattenedItems, folderMap } = useMemo(
     () => flattenFolderStructure(folders, collapsedFolderIds),
