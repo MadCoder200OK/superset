@@ -61,6 +61,9 @@ except Exception as ex:
     )
 
 
+logger = logging.getLogger(__name__)
+
+
 class ResultsBackendManager:
     def __init__(self) -> None:
         self._results_backend = None
@@ -119,8 +122,12 @@ class UIManifestProcessor:
                 # templates
                 full_manifest = json.load(f)
                 self.manifest = full_manifest.get("entrypoints", {})
-        except Exception:  # pylint: disable=broad-except  # noqa: S110
-            pass
+        except Exception:  # pylint: disable=broad-except
+            logger.warning(
+                "Failed to parse manifest file: %s",
+                self.manifest_file,
+                exc_info=True,
+            )
 
     def get_manifest_files(self, bundle: str, asset_type: str) -> list[str]:
         if self.app and self.app.debug:

@@ -493,6 +493,10 @@ class Superset(BaseSupersetView):
                 datasource_id, datasource_type, form_data
             )
         except SupersetException:
+            logger.warning(
+                "Failed to get datasource info, falling back to defaults",
+                exc_info=True,
+            )
             datasource_id = None
             # fallback unknown datasource to table type
             datasource_type = SqlaTable.type
@@ -582,6 +586,11 @@ class Superset(BaseSupersetView):
         try:
             datasource_data = datasource.data if datasource else dummy_datasource_data
         except (SupersetException, SQLAlchemyError):
+            logger.warning(
+                "Failed to load datasource data for datasource %s",
+                datasource_id,
+                exc_info=True,
+            )
             datasource_data = dummy_datasource_data
 
         if datasource:

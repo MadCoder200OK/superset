@@ -173,7 +173,11 @@ class SyncPermissionsCommand(BaseCommand):
                             )
                         continue
             except DatabaseConnectionFailedError:
-                logger.warning("Error processing catalog %s", catalog or "(default)")
+                logger.warning(
+                    "Error processing catalog %s",
+                    catalog or "(default)",
+                    exc_info=True,
+                )
                 continue
 
             # add possible new schemas in catalog

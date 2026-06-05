@@ -38,7 +38,9 @@ def parse_extra(extra_payload: str) -> dict[str, Any]:
     try:
         extra = json.loads(extra_payload)
     except json.JSONDecodeError:
-        logger.info("Unable to decode `extra` field: %s", extra_payload)
+        logger.warning(
+            "Unable to decode `extra` field: %s", extra_payload, exc_info=True
+        )
         return {}
 
     # Fix for DBs saved with an invalid ``schemas_allowed_for_csv_upload``
