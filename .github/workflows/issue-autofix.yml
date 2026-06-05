@@ -1,0 +1,70 @@
+name: Issue → Devin AutoFix
+
+on:
+  issues:
+    types: [opened, labeled]
+
+env:
+  DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+  DEVIN_ORG_ID: ${{ secrets.DEVIN_ORG_ID }}
+
+jobs:
+  autofix:
+    if: contains(github.event.issue.labels.*.name, 'devin-autofix')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Devin session
+        run: |
+          python3 << 'PYEOF'
+          import json, os, urllib.request
+
+          api_key = os.environ["DEVIN_API_KEY"]
+          org_id = os.environ["DEVIN_ORG_ID"]
+          repo = "${{ github.repository }}"
+          issue_number = ${{ github.event.issue.number }}
+          issue_title = """${{ github.event.issue.title }}"""
+          issue_body = json.loads(os.environ.get("ISSUE_BODY", '""'))
+
+          text = f"{issue_title} {issue_body}".lower()
+          frontend_signals = ["frontend", "react", "chart", "button", "ui", "css",
+                              "component", "panel", "d3 format", "collapse", "render",
+                              "plugin-chart", "superset-frontend", "display"]
+          is_frontend = any(s in text for s in frontend_signals)
+
+          if is_frontend:
+              stack = "FRONTEND: Code in superset-frontend/. React 18 + TypeScript + ECharts."
+          else:
+              stack = "BACKEND: Code in superset/. Python + Flask + SQLAlchemy."
+
+          prompt = f"""Fix this issue in Apache Superset.
+          Repo: https://github.com/{repo}
+          Issue #{issue_number}: {issue_title}
+          {issue_body}
+          Context: {stack}
+          Steps: clone repo, branch fix/issue-{issue_number}, make minimal fix, open PR against master.
+          PR title: "fix: {issue_title}" PR body: "Closes #{issue_number}" """
+
+          payload = json.dumps({
+              "prompt": prompt,
+              "title": f"AutoFix #{issue_number}",
+              "tags": ["github-action", f"issue-{issue_number}"],
+              "idempotent": True,
+          }).encode()
+
+          req = urllib.request.Request(
+              f"https://api.devin.ai/v3/organizations/{org_id}/sessions",
+              data=payload,
+              headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+              method="POST",
+          )
+          resp = urllib.request.urlopen(req)
+          result = json.loads(resp.read())
+          print(f"Devin session: {result.get('url', result.get('session_id'))}")
+          PYEOF
+        env:
+          ISSUE_BODY: ${{ toJSON(github.event.issue.body) }}
+
+      - name: Summary
+        run: |
+          echo "## Devin AutoFix Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}" >> $GITHUB_STEP_SUMMARY

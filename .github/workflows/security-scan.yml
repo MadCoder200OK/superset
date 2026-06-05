@@ -1,0 +1,73 @@
+name: Security Scan → Devin AutoFix
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'requirements/**'
+      - 'setup.py'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+env:
+  DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+  DEVIN_ORG_ID: ${{ secrets.DEVIN_ORG_ID }}
+
+jobs:
+  scan-and-remediate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Scan and dispatch
+        run: |
+          pip-audit -r requirements/base.txt --format json --output /tmp/audit.json 2>/dev/null || true
+
+          python3 << 'PYEOF'
+          import json, os, urllib.request, time
+
+          api_key = os.environ["DEVIN_API_KEY"]
+          org_id = os.environ["DEVIN_ORG_ID"]
+          repo = os.environ.get("GITHUB_REPOSITORY", "MadCoder200OK/superset")
+
+          try:
+              data = json.load(open("/tmp/audit.json"))
+          except:
+              print("No vulnerabilities found"); exit(0)
+
+          vulns = []
+          for dep in data.get("dependencies", []):
+              for v in dep.get("vulns", []):
+                  fix = v.get("fix_versions", ["latest"])[0] if v.get("fix_versions") else "latest"
+                  vulns.append({"pkg": dep["name"], "ver": dep["version"], "fix": fix,
+                                "id": v.get("id", "UNKNOWN"), "desc": v.get("description", "")[:200]})
+
+          if not vulns:
+              print("No vulnerabilities found"); exit(0)
+
+          print(f"Found {len(vulns)} vulnerabilities")
+          for i, v in enumerate(vulns[:5], 1):
+              prompt = f"""Fix security vulnerability in {repo}.
+              {v['id']}: {v['pkg']} {v['ver']} -> {v['fix']}
+              {v['desc']}
+              Update version in requirements/base.in to >={v['fix']}.
+              Branch: fix/security-{v['id'].lower().replace('-','_')}
+              Open PR: "fix(security): upgrade {v['pkg']} for {v['id']}" """
+
+              payload = json.dumps({"prompt": prompt, "title": f"Security: {v['pkg']} {v['id']}",
+                                    "tags": ["ci-scan", "security"], "idempotent": True}).encode()
+              req = urllib.request.Request(f"https://api.devin.ai/v3/organizations/{org_id}/sessions",
+                  data=payload, headers={"Authorization": f"Bearer {api_key}",
+                  "Content-Type": "application/json"}, method="POST")
+              try:
+                  resp = urllib.request.urlopen(req)
+                  result = json.loads(resp.read())
+                  print(f"  [{i}] {v['pkg']} ({v['id']}) -> session created")
+              except Exception as e:
+                  print(f"  [{i}] {v['pkg']} ({v['id']}) -> FAILED: {e}")
+              time.sleep(2)
+          PYEOF
