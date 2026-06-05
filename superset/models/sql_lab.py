@@ -21,7 +21,7 @@ import inspect
 import logging
 import re
 from collections.abc import Hashable
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, cast, Optional, TYPE_CHECKING
 
 import sqlalchemy as sqla
@@ -170,7 +170,10 @@ class Query(
     tracking_url_raw = Column(Text, name="tracking_url")
 
     changed_on = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True
+        DateTime,
+        default=lambda: datetime.now(tz=timezone.utc),
+        onupdate=lambda: datetime.now(tz=timezone.utc),
+        nullable=True,
     )
 
     @hybrid_property
