@@ -31,4 +31,4 @@ def datetime_to_epoch(dttm: datetime) -> float:
 
 
 def now_as_float() -> float:
-    return datetime_to_epoch(datetime.now(tz=timezone.utc))
+    return datetime_to_epoch(datetime.now(tz=timezone.utc).replace(tzinfo=None))

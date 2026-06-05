@@ -69,7 +69,8 @@ class LogPruneCommand(BaseCommand):
         # on PostgreSQL ("operator does not exist: timestamp without time zone").
         select_stmt = sa.select(Log.id).where(
             Log.dttm
-            < datetime.now(tz=timezone.utc) - timedelta(days=self.retention_period_days)
+            < datetime.now(tz=timezone.utc).replace(tzinfo=None)
+            - timedelta(days=self.retention_period_days)
         )
 
         # Optionally limited by max_rows_per_run

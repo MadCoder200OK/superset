@@ -1078,7 +1078,9 @@ def test_update_recipient_to_slack_v2_missing_channels(mocker: MockerFixture):
 def test_update_query_context_wraps_screenshot_failure(mocker: MockerFixture) -> None:
     """_update_query_context wraps ScreenshotFailedError as CsvFailedError."""
     schedule = mocker.Mock(spec=ReportSchedule)
-    state = BaseReportState(schedule, datetime.now(tz=timezone.utc), uuid4())
+    state = BaseReportState(
+        schedule, datetime.now(tz=timezone.utc).replace(tzinfo=None), uuid4()
+    )
     state._report_schedule = schedule
     mocker.patch.object(
         state,
@@ -1092,7 +1094,9 @@ def test_update_query_context_wraps_screenshot_failure(mocker: MockerFixture) ->
 def test_update_query_context_wraps_screenshot_timeout(mocker: MockerFixture) -> None:
     """_update_query_context wraps ScreenshotTimeout as CsvFailedError."""
     schedule = mocker.Mock(spec=ReportSchedule)
-    state = BaseReportState(schedule, datetime.now(tz=timezone.utc), uuid4())
+    state = BaseReportState(
+        schedule, datetime.now(tz=timezone.utc).replace(tzinfo=None), uuid4()
+    )
     state._report_schedule = schedule
     mocker.patch.object(
         state,
@@ -1112,7 +1116,9 @@ def test_create_log_stale_data_raises_unexpected_error(mocker: MockerFixture) ->
     schedule.last_value_row_json = None
     schedule.last_state = ReportState.WORKING
 
-    state = BaseReportState(schedule, datetime.now(tz=timezone.utc), uuid4())
+    state = BaseReportState(
+        schedule, datetime.now(tz=timezone.utc).replace(tzinfo=None), uuid4()
+    )
     state._report_schedule = schedule
 
     mock_db = mocker.patch("superset.commands.report.execute.db")
@@ -1167,7 +1173,9 @@ def _make_notification_state(
 
     schedule.extra = {}
 
-    state = BaseReportState(schedule, datetime.now(tz=timezone.utc), uuid4())
+    state = BaseReportState(
+        schedule, datetime.now(tz=timezone.utc).replace(tzinfo=None), uuid4()
+    )
     state._report_schedule = schedule
 
     # Stub helpers that _get_notification_content calls
@@ -1281,14 +1289,16 @@ def _make_state_instance(
     schedule.last_state = last_state
     schedule.grace_period = grace_period
     schedule.working_timeout = working_timeout
-    schedule.last_eval_dttm = datetime.now(tz=timezone.utc)
+    schedule.last_eval_dttm = datetime.now(tz=timezone.utc).replace(tzinfo=None)
     schedule.name = "Test"
     schedule.owners = []
     schedule.recipients = []
     schedule.force_screenshot = False
     schedule.extra = {}
 
-    instance = cls(schedule, datetime.now(tz=timezone.utc), uuid4())
+    instance = cls(
+        schedule, datetime.now(tz=timezone.utc).replace(tzinfo=None), uuid4()
+    )
     instance._report_schedule = schedule
     return instance
 
@@ -1299,7 +1309,9 @@ def test_working_state_timeout_raises_timeout_error(mocker: MockerFixture) -> No
     mocker.patch.object(state, "is_on_working_timeout", return_value=True)
 
     mock_log = mocker.Mock()
-    mock_log.end_dttm = datetime.now(tz=timezone.utc) - timedelta(hours=2)
+    mock_log.end_dttm = datetime.now(tz=timezone.utc).replace(tzinfo=None) - timedelta(
+        hours=2
+    )
     mocker.patch(
         "superset.commands.report.execute.ReportScheduleDAO.find_last_entered_working_log",
         return_value=mock_log,
@@ -1480,7 +1492,9 @@ def test_state_machine_unknown_state_raises_not_found(
     # Use a string that isn't in any state class's current_states
     schedule.last_state = "NONEXISTENT_STATE"
 
-    sm = ReportScheduleStateMachine(uuid4(), schedule, datetime.now(tz=timezone.utc))
+    sm = ReportScheduleStateMachine(
+        uuid4(), schedule, datetime.now(tz=timezone.utc).replace(tzinfo=None)
+    )
     with pytest.raises(ReportScheduleStateNotFoundError):
         sm.run()
 
@@ -1514,7 +1528,9 @@ def test_create_log_success_commits(mocker: MockerFixture) -> None:
     schedule.last_value_row_json = '{"col": 42}'
     schedule.last_state = ReportState.SUCCESS
 
-    state = BaseReportState(schedule, datetime.now(tz=timezone.utc), uuid4())
+    state = BaseReportState(
+        schedule, datetime.now(tz=timezone.utc).replace(tzinfo=None), uuid4()
+    )
     state._report_schedule = schedule
 
     mock_db = mocker.patch("superset.commands.report.execute.db")

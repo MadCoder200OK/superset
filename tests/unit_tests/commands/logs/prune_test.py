@@ -21,8 +21,8 @@ from unittest.mock import MagicMock, patch
 
 def test_prune_cutoff_is_naive_utc() -> None:
     """
-    The retention cutoff is a timezone-aware UTC datetime produced by
-    datetime.now(tz=timezone.utc).
+    The retention cutoff is a naive UTC datetime produced by
+    datetime.now(tz=timezone.utc).replace(tzinfo=None).
     """
     from superset.commands.logs.prune import LogPruneCommand
 
@@ -45,9 +45,9 @@ def test_prune_cutoff_is_naive_utc() -> None:
         LogPruneCommand(retention_period_days=30).run()
 
     cutoff = captured["cutoff"]
-    # The cutoff must be timezone-aware UTC.
-    assert cutoff.tzinfo is not None
+    # The cutoff must be timezone-naive to match Log.dttm column type.
+    assert cutoff.tzinfo is None
 
-    expected = datetime.now(tz=timezone.utc) - timedelta(days=30)
+    expected = datetime.now(tz=timezone.utc).replace(tzinfo=None) - timedelta(days=30)
     # Allow a small delta for execution time between computing the two values.
     assert abs((cutoff - expected).total_seconds()) < 60
