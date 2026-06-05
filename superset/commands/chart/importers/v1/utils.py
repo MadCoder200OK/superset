@@ -19,13 +19,16 @@ import copy
 from inspect import isclass
 from typing import Any
 
-from superset import db, security_manager
-from superset.commands.exceptions import ImportFailedError
+from superset import security_manager
+from superset.commands.importers.v1.utils import (
+    flush_and_ensure_owner,
+    validate_import_access,
+)
 from superset.migrations.shared.migrate_viz import processors
 from superset.migrations.shared.migrate_viz.base import MigrateViz
 from superset.models.slice import Slice
 from superset.utils import json
-from superset.utils.core import AnnotationType, get_user
+from superset.utils.core import AnnotationType
 
 
 def filter_chart_annotations(chart_config: dict[str, Any]) -> None:
@@ -48,25 +51,16 @@ def import_chart(
     overwrite: bool = False,
     ignore_permissions: bool = False,
 ) -> Slice:
-    can_write = ignore_permissions or security_manager.can_access("can_write", "Chart")
-    existing = db.session.query(Slice).filter_by(uuid=config["uuid"]).first()
-    user = get_user()
+    existing = validate_import_access(
+        Slice,
+        "Chart",
+        config,
+        overwrite=overwrite,
+        ignore_permissions=ignore_permissions,
+        access_check=security_manager.can_access_chart,
+    )
     if existing:
-        if overwrite and can_write and user:
-            if not security_manager.can_access_chart(existing) or (
-                user not in existing.owners and not security_manager.is_admin()
-            ):
-                raise ImportFailedError(
-                    "A chart already exists and user doesn't "
-                    "have permissions to overwrite it"
-                )
-        if not overwrite or not can_write:
-            return existing
-        config["id"] = existing.id
-    elif not can_write:
-        raise ImportFailedError(
-            "Chart doesn't exist and user doesn't have permission to create charts"
-        )
+        return existing
 
     filter_chart_annotations(config)
 
@@ -77,11 +71,7 @@ def import_chart(
     config = migrate_chart(config)
 
     chart = Slice.import_from_dict(config, recursive=False, allow_reparenting=True)
-    if chart.id is None:
-        db.session.flush()
-
-    if (user := get_user()) and user not in chart.owners:
-        chart.owners.append(user)
+    flush_and_ensure_owner(chart)
 
     return chart
 

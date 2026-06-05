@@ -15,16 +15,18 @@
 
 import logging
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type, TypeVar
 from zipfile import ZipFile
 
 import yaml
+from flask_appbuilder.models.sqla import Model
 from marshmallow import fields, Schema, validate
 from marshmallow.exceptions import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from superset import db
+from superset import db, security_manager
+from superset.commands.exceptions import ImportFailedError
 from superset.commands.importers.exceptions import IncorrectVersionError
 from superset.databases.ssh_tunnel.models import SSHTunnel
 from superset.extensions import feature_flag_manager
@@ -33,13 +35,91 @@ from superset.models.dashboard import dashboard_slices
 from superset.models.helpers import SKIP_VISIBILITY_FILTER_CLASSES
 from superset.tags.models import Tag, TaggedObject
 from superset.utils import json
-from superset.utils.core import check_is_safe_zip
+from superset.utils.core import check_is_safe_zip, get_user
 from superset.utils.decorators import transaction
+
+T = TypeVar("T", bound=Model)
 
 METADATA_FILE_NAME = "metadata.yaml"
 IMPORT_VERSION = "1.0.0"
 
 logger = logging.getLogger(__name__)
+
+
+def validate_import_access(
+    model_class: type[T],
+    resource_name: str,
+    config: dict[str, Any],
+    overwrite: bool = False,
+    ignore_permissions: bool = False,
+    access_check: Optional[Callable[[T], bool]] = None,
+) -> Optional[T]:
+    """
+    Common permission and existence checks for resource imports.
+
+    Validates that the current user has write access to the resource type,
+    checks if a record with the same UUID already exists, and enforces
+    overwrite permissions.
+
+    Args:
+        model_class: The SQLAlchemy model class to query.
+        resource_name: The FAB resource name (e.g. "Chart", "Dashboard").
+        config: The import configuration dict (must contain "uuid").
+        overwrite: Whether to overwrite an existing resource.
+        ignore_permissions: Whether to skip permission checks.
+        access_check: Optional callable that receives the existing instance
+            and returns True if the user has resource-specific access.
+            When None, only ownership is checked.
+
+    Returns:
+        The existing instance if it should not be overwritten (caller should
+        return it directly), or None if the import should proceed (either
+        creating or updating). When updating, ``config["id"]`` is set.
+
+    Raises:
+        ImportFailedError: If the user lacks permission to create or overwrite.
+    """
+    can_write = ignore_permissions or security_manager.can_access(
+        "can_write", resource_name
+    )
+    existing = db.session.query(model_class).filter_by(uuid=config["uuid"]).first()
+    user = get_user()
+
+    if existing:
+        if overwrite and can_write and user:
+            has_access = access_check(existing) if access_check else True
+            if not has_access or (
+                hasattr(existing, "owners")
+                and user not in existing.owners
+                and not security_manager.is_admin()
+            ):
+                raise ImportFailedError(
+                    f"A {resource_name.lower()} already exists and user doesn't "
+                    "have permissions to overwrite it"
+                )
+        if not overwrite or not can_write:
+            return existing
+        config["id"] = existing.id
+    elif not can_write:
+        raise ImportFailedError(
+            f"{resource_name} doesn't exist and user doesn't "
+            f"have permission to create {resource_name.lower()}s"
+        )
+
+    return None
+
+
+def flush_and_ensure_owner(instance: Model) -> None:
+    """
+    Flush the session if the instance is new and ensure the current user
+    is listed as an owner.
+    """
+    if instance.id is None:
+        db.session.flush()
+
+    if hasattr(instance, "owners"):
+        if (user := get_user()) and user not in instance.owners:
+            instance.owners.append(user)
 
 
 def remove_root(file_path: str) -> str:

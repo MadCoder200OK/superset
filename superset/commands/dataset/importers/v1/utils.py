@@ -33,7 +33,9 @@ from superset.commands.dataset.exceptions import (
     DatasetForbiddenDataURI,
     MultiCatalogDisabledValidationError,
 )
-from superset.commands.exceptions import ImportFailedError
+from superset.commands.importers.v1.utils import (
+    validate_import_access,
+)
 from superset.connectors.sqla.models import SqlaTable
 from superset.exceptions import SupersetSecurityException
 from superset.models.core import Database
@@ -140,27 +142,15 @@ def import_dataset(  # noqa: C901
     force_data: bool = False,
     ignore_permissions: bool = False,
 ) -> SqlaTable:
-    can_write = ignore_permissions or security_manager.can_access(
-        "can_write",
+    existing = validate_import_access(
+        SqlaTable,
         "Dataset",
+        config,
+        overwrite=overwrite,
+        ignore_permissions=ignore_permissions,
     )
-    existing = db.session.query(SqlaTable).filter_by(uuid=config["uuid"]).first()
-    user = get_user()
     if existing:
-        if overwrite and can_write and user:
-            if user not in existing.owners and not security_manager.is_admin():
-                raise ImportFailedError(
-                    "A dataset already exists and user doesn't "
-                    "have permissions to overwrite it"
-                )
-        if not overwrite or not can_write:
-            return existing
-        config["id"] = existing.id
-
-    elif not can_write:
-        raise ImportFailedError(
-            "Dataset doesn't exist and user doesn't have permission to create datasets"
-        )
+        return existing
 
     # Trusted imports (e.g. example loading) carry curated configs; only
     # untrusted user imports validate the catalog, like the access checks below.
