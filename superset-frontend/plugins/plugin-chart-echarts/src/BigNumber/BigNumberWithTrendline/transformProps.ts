@@ -380,6 +380,12 @@ export default function transformProps(
 
   const { onContextMenu } = hooks;
 
+  // When no comparison text exists, apply subheaderFontSize to the subtitle
+  // so the "Subheader Font Size" control always has a visible effect.
+  const effectiveSubtitleFontSize = formattedSubheader
+    ? subtitleFontSize
+    : subheaderFontSize;
+
   return {
     width,
     height,
@@ -394,7 +400,7 @@ export default function transformProps(
     showMetricName,
     metricNameFontSize,
     headerFontSize,
-    subtitleFontSize,
+    subtitleFontSize: effectiveSubtitleFontSize,
     subtitle,
     subheaderFontSize,
     mainColor,
