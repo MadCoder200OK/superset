@@ -105,6 +105,32 @@ export const DatasourceItems = ({
     ),
   );
 
+  useEffect(() => {
+    setCollapsedFolderIds(prevIds => {
+      const currentFolderIds = new Set(folders.map(folder => folder.id));
+      const newIds = new Set<string>();
+
+      // Preserve collapse state for folders that still exist
+      prevIds.forEach(id => {
+        if (currentFolderIds.has(id)) {
+          newIds.add(id);
+        }
+      });
+
+      // Respect default collapse states for new folders
+      folders.forEach(folder => {
+        if (folder.isCollapsed && !prevIds.has(folder.id)) {
+          newIds.add(folder.id);
+        }
+      });
+
+      if (newIds.size === prevIds.size && [...newIds].every(id => prevIds.has(id))) {
+        return prevIds;
+      }
+      return newIds;
+    });
+  }, [folders]);
+
   const { flattenedItems, folderMap } = useMemo(
     () => flattenFolderStructure(folders, collapsedFolderIds),
     [folders, collapsedFolderIds],
