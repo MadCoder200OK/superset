@@ -276,20 +276,11 @@ export const SavedQueries = ({
         buttons={[
           {
             icon: <Icons.PlusOutlined iconSize="m" />,
-            name: (
-              <Link
-                to="/sqllab?new=true"
-                css={css`
-                  &:hover {
-                    color: currentColor;
-                    text-decoration: none;
-                  }
-                `}
-              >
-                {t('SQL Query')}
-              </Link>
-            ),
+            name: t('SQL Query'),
             buttonStyle: 'secondary',
+            onClick: () => {
+              navigateTo('/sqllab?new=true');
+            },
           },
           {
             name: t('View All »'),
