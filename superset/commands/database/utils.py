@@ -93,7 +93,7 @@ def add_permissions(database: Database) -> None:
                     ),
                 )
         except GenericDBException:  # pylint: disable=broad-except
-            logger.warning("Error processing catalog '%s'", catalog)
+            logger.warning("Error processing catalog '%s'", catalog, exc_info=True)
             continue
 
 
