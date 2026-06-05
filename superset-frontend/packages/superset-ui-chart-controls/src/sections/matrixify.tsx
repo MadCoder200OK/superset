@@ -109,6 +109,7 @@ export const matrixifySection: ControlPanelSectionConfig = {
 };
 
 export const matrixifyRowSection: ControlPanelSectionConfig = {
+  label: t('Rows'),
   expanded: false,
   visibility: ({ controls }) =>
     controls?.matrixify_enable?.value === true &&
@@ -127,6 +128,7 @@ export const matrixifyRowSection: ControlPanelSectionConfig = {
 };
 
 export const matrixifyColumnSection: ControlPanelSectionConfig = {
+  label: t('Columns'),
   expanded: false,
   visibility: ({ controls }) =>
     controls?.matrixify_enable?.value === true &&
