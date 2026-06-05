@@ -14,6 +14,34 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# Flask 3.x removed _app_ctx_stack (replaced by contextvars internally).
+# Flask-SQLAlchemy 2.5.x still imports it for session scoping.  Re-add
+# a lightweight adapter that bridges to Flask 3.x's ContextVar so the
+# existing session machinery keeps working without upgrading to
+# Flask-SQLAlchemy 3.0 (which has breaking session-management changes).
+import flask as _flask  # isort: skip  # noqa: E402
+
+if not hasattr(_flask, "_app_ctx_stack"):  # Flask >= 3.0
+    import threading as _threading
+    from typing import Any as _Any, Callable as _Callable, Optional as _Optional
+
+    from flask.globals import _cv_app as _cv_app
+
+    class _AppCtxStackCompat:
+        """Minimal shim for the removed ``flask._app_ctx_stack``."""
+
+        @property
+        def __ident_func__(self) -> _Callable[[], int]:
+            return _threading.get_ident
+
+        @property
+        def top(self) -> _Optional[_Any]:
+            return _cv_app.get(None)
+
+    _flask._app_ctx_stack = _AppCtxStackCompat()  # noqa: E501
+    _flask.globals._app_ctx_stack = _flask._app_ctx_stack  # noqa: E501
+
 from werkzeug.local import LocalProxy
 
 from superset.app import create_app  # noqa: F401
