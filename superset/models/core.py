@@ -28,7 +28,7 @@ import threading
 from ast import literal_eval
 from contextlib import closing, contextmanager, nullcontext, suppress
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from inspect import signature
 from typing import Any, Callable, cast, Optional, TYPE_CHECKING
@@ -1451,7 +1451,7 @@ class Log(Model):  # pylint: disable=too-few-public-methods
     user = relationship(
         security_manager.user_model, backref="logs", foreign_keys=[user_id]
     )
-    dttm = Column(DateTime, default=datetime.utcnow)
+    dttm = Column(DateTime, default=lambda: datetime.now(tz=timezone.utc))
     duration_ms = Column(Integer)
     referrer = Column(String(1024))
 
@@ -1468,4 +1468,4 @@ class FavStar(UUIDMixin, Model):
     user_id = Column(Integer, ForeignKey("ab_user.id"))
     class_name = Column(String(50))
     obj_id = Column(Integer)
-    dttm = Column(DateTime, default=datetime.utcnow)
+    dttm = Column(DateTime, default=lambda: datetime.now(tz=timezone.utc))
