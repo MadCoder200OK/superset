@@ -27,13 +27,14 @@ import { QueryObjectFilterClause } from './types/Query';
 export default function convertFilter(
   filter: SimpleAdhocFilter,
 ): QueryObjectFilterClause {
-  const { subject } = filter;
+  const { subject, timeGrain } = filter;
   if (isUnaryAdhocFilter(filter)) {
     const { operator } = filter;
 
     return {
       col: subject,
       op: operator,
+      ...(timeGrain && { grain: timeGrain }),
     };
   }
   if (isBinaryAdhocFilter(filter)) {
@@ -43,6 +44,7 @@ export default function convertFilter(
       col: subject,
       op: operator,
       val: filter.comparator,
+      ...(timeGrain && { grain: timeGrain }),
     };
   }
 
@@ -52,5 +54,6 @@ export default function convertFilter(
     col: subject,
     op: operator,
     val: filter.comparator,
+    ...(timeGrain && { grain: timeGrain }),
   };
 }

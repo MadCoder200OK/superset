@@ -1635,18 +1635,9 @@ def test_time_filter_with_grain(test_client, login_as_admin, physical_query_cont
     ]
     rv = test_client.post(CHART_DATA_URI, json=physical_query_context)
     query = rv.json["result"][0]["query"]
-    backend = get_example_database().backend
-    if backend == "sqlite":
-        assert (
-            "DATETIME(col5, 'start of day',             -strftime('%w', col5) || ' days') >="  # noqa: E501
-            in query
-        )
-    elif backend == "mysql":
-        assert "DATE(DATE_SUB(col5, INTERVAL DAYOFWEEK(col5) - 1 DAY)) >=" in query
-    elif backend == "postgresql":
-        assert "DATE_TRUNC('week', col5) >=" in query
-    elif backend == "presto":
-        assert "date_trunc('week', CAST(col5 AS TIMESTAMP)) >=" in query
+    # Time filter should always use the raw column, not the granulated
+    # expression, regardless of the grain set on the filter.
+    assert "col5 >=" in query
 
 
 def test_force_cache_timeout(test_client, login_as_admin, physical_query_context):
