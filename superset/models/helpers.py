@@ -3353,7 +3353,6 @@ class ExploreMixin:  # pylint: disable=too-many-public-methods
                 continue
             flt_col = flt["col"]
             val = flt.get("val")
-            flt_grain = flt.get("grain")
             op = utils.FilterOperator(flt["op"].upper())
             col_obj: Optional["TableColumn"] = None
             sqla_col: Optional[Column] = None
@@ -3592,7 +3591,6 @@ class ExploreMixin:  # pylint: disable=too-many-public-methods
                             time_col=col_obj,
                             start_dttm=_since,
                             end_dttm=_until,
-                            time_grain=flt_grain,
                             label=sqla_col.key,
                             template_processor=template_processor,
                         )
